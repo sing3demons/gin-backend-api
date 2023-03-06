@@ -5,10 +5,14 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/matthewhartstonge/argon2"
 	"github.com/sing3demons/gin-backend-api/models"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -76,7 +80,9 @@ func (h *handler) Register(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), 8)
+	argon := argon2.DefaultConfig()
+	hashedPassword, err := argon.HashEncoded([]byte(form.Password))
+	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), 8)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -99,10 +105,73 @@ func (h *handler) Register(c *gin.Context) {
 }
 
 func (h handler) Login(c *gin.Context) {
-	var user FormLogin
+	var body FormLogin
 
-	if err := c.ShouldBindJSON(&user); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := h.db.Where("email = ?", body.Email).First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "user not found",
+		})
+		return
+	}
+
+	ok, err := argon2.VerifyEncoded([]byte(body.Password), []byte(user.Password))
+	if !ok || err != nil {
+		log.Println(err)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "invalid password",
+		})
+		return
+	}
+
+	type CustomClaims struct {
+		Name string `json:"name"`
+		jwt.RegisteredClaims
+	}
+
+	claims := &CustomClaims{
+		Name: user.Fullname,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   strconv.Itoa(int(user.ID)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+		},
+	}
+
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	accessToken, err := jwtToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal server error",
+		})
+		return
+	}
+
+	getResponseJson(c, gin.H{
+		"access_token": accessToken,
+	})
+}
+
+func (h *handler) GetProfile(c *gin.Context) {
+	id, ok := c.Get("sub")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "unauthorized",
+		})
+		return
+	}
+
+	var user models.User
+	if err := h.db.First(&user, id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "user not found",
+		})
 		return
 	}
 
@@ -121,7 +190,7 @@ func getResponseJson(c *gin.Context, data any) {
 
 	c.Writer.Header().Add("Response-Json", string(json))
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "success",
+		"statusCode": 200,
 		"resultDate": data,
 	})
 }
