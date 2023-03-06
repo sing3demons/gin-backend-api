@@ -20,6 +20,6 @@ func Connection() *gorm.DB {
 	}
 
 	fmt.Println("Database connected")
-	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.User{}, &models.Blog{})
 	return db
 }

@@ -24,9 +24,9 @@ func New(db *gorm.DB) *handler {
 	return &handler{db}
 }
 
-func (h handler) GetAll(c *gin.Context) {
+func (h *handler) GetAll(c *gin.Context) {
 	var users []models.User
-	if err := h.db.Find(&users).Error; err != nil {
+	if err := h.db.Preload("Blogs").Find(&users).Error; err != nil {
 		log.Panicln(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "internal server error",
@@ -34,18 +34,9 @@ func (h handler) GetAll(c *gin.Context) {
 		return
 	}
 
-	responses := []responseUser{}
-	for _, user := range users {
-		responses = append(responses, responseUser{
-			ID:        user.ID,
-			FullName:  user.Fullname,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt.String(),
-			UpdatedAt: user.UpdatedAt.String(),
-		})
-	}
 
-	getResponseJson(c, responses)
+
+	getResponseJson(c, users)
 }
 
 func (h handler) SearchByName(c *gin.Context) {
