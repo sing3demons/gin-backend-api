@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sing3demons/gin-backend-api/models"
+	"github.com/sing3demons/gin-backend-api/utils"
 	"gorm.io/gorm"
 )
 
@@ -28,7 +29,8 @@ func (h *handler) GetAll(c *gin.Context) {
 		return
 	}
 
-	getResponseJson(c, blogs)
+
+	utils.ResponseJsonWithLogger(c, 200, blogs)
 
 }
 

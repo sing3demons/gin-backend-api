@@ -13,13 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - ./_db:/var/lib/postgresql/data
-  # adminer:
-  #   image: adminer
-  #   container_name: adminer
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     - db
   app:
     build: .
     container_name: go-backend
@@ -32,5 +25,3 @@ services:
       - JWT_SECRET=4614A26F-273E-4FB1-B282-4B64AE60591D
     depends_on:
       - db
-
-# - "postgresql://postgres:password@localhost:5432/go-backend?sslmode=disable"

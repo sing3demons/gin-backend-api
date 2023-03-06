@@ -1,7 +1,6 @@
 package user
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/matthewhartstonge/argon2"
 	"github.com/sing3demons/gin-backend-api/models"
+	"github.com/sing3demons/gin-backend-api/utils"
 	"gorm.io/gorm"
 )
 
@@ -34,19 +34,7 @@ func (h *handler) GetAll(c *gin.Context) {
 		return
 	}
 
-
-
-	getResponseJson(c, users)
-}
-
-func (h handler) SearchByName(c *gin.Context) {
-	fullName := c.Param("name")
-	if fullName != "" {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "users with fullname: " + fullName,
-		})
-		return
-	}
+	utils.ResponseJsonWithLogger(c, 200, users)
 }
 
 func (h handler) GetById(c *gin.Context) {
@@ -60,7 +48,7 @@ func (h handler) GetById(c *gin.Context) {
 		return
 	}
 
-	getResponseJson(c, user)
+	utils.ResponseJsonWithLogger(c, 200, user)
 }
 
 func (h *handler) Register(c *gin.Context) {
@@ -92,7 +80,7 @@ func (h *handler) Register(c *gin.Context) {
 		return
 	}
 
-	getResponseJson(c, user)
+	utils.ResponseJsonWithLogger(c, 201, user)
 }
 
 func (h handler) Login(c *gin.Context) {
@@ -144,7 +132,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	getResponseJson(c, gin.H{
+	utils.ResponseJsonWithLogger(c, 200, gin.H{
 		"access_token": accessToken,
 	})
 }
@@ -166,22 +154,5 @@ func (h *handler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	getResponseJson(c, user)
-}
-
-func getResponseJson(c *gin.Context, data any) {
-	json, err := json.Marshal(data)
-	if err != nil {
-		log.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "internal server error",
-		})
-		return
-	}
-
-	c.Writer.Header().Add("Response-Json", string(json))
-	c.JSON(http.StatusOK, gin.H{
-		"statusCode": 200,
-		"resultDate": data,
-	})
+	utils.ResponseJsonWithLogger(c, 200, user)
 }
