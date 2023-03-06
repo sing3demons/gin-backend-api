@@ -1,6 +1,7 @@
 package user
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -39,9 +40,8 @@ func (h handler) GetAll(c *gin.Context) {
 			UpdatedAt: user.UpdatedAt.String(),
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"users": responses,
-	})
+
+	getResponseJson(c, responses)
 }
 
 func (h handler) SearchByName(c *gin.Context) {
@@ -65,9 +65,7 @@ func (h handler) GetById(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"user": user,
-	})
+	getResponseJson(c, user)
 }
 
 func (h *handler) Register(c *gin.Context) {
@@ -97,9 +95,7 @@ func (h *handler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "register success",
-	})
+	getResponseJson(c, user)
 }
 
 func (h handler) Login(c *gin.Context) {
@@ -110,7 +106,22 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
+	getResponseJson(c, user)
+}
+
+func getResponseJson(c *gin.Context, data any) {
+	json, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal server error",
+		})
+		return
+	}
+
+	c.Writer.Header().Add("Response-Json", string(json))
 	c.JSON(http.StatusOK, gin.H{
-		"user": user,
+		"message":    "success",
+		"resultDate": data,
 	})
 }
