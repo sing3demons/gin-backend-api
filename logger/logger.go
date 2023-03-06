@@ -2,8 +2,13 @@ package logger
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httputil"
 	"os"
 	"path"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -119,5 +124,58 @@ func ZapLogger(logger *zap.Logger) gin.HandlerFunc {
 				logger.Info(path, fields...)
 			}
 		}
+	}
+}
+
+func defaultHandleRecovery(c *gin.Context, err interface{}) {
+	c.AbortWithStatus(http.StatusInternalServerError)
+}
+
+func RecoveryWithZap(logger *zap.Logger, stack bool) gin.HandlerFunc {
+	return CustomRecoveryWithZap(logger, stack, defaultHandleRecovery)
+}
+
+func CustomRecoveryWithZap(logger *zap.Logger, stack bool, recovery gin.RecoveryFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				var brokenPipe bool
+				if ne, ok := err.(*net.OpError); ok {
+					if se, ok := ne.Err.(*os.SyscallError); ok {
+						if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
+							brokenPipe = true
+						}
+					}
+				}
+
+				httpRequest, _ := httputil.DumpRequest(c.Request, false)
+				if brokenPipe {
+					logger.Error(c.Request.URL.Path,
+						zap.Any("error", err),
+						zap.String("request", string(httpRequest)),
+					)
+					c.Error(err.(error))
+					c.Abort()
+					return
+				}
+
+				if stack {
+					logger.Error("[Recovery from panic]",
+						zap.Time("time", time.Now()),
+						zap.Any("error", err),
+						zap.String("request", string(httpRequest)),
+						zap.String("stack", string(debug.Stack())),
+					)
+				} else {
+					logger.Error("[Recovery from panic]",
+						zap.Time("time", time.Now()),
+						zap.Any("error", err),
+						zap.String("request", string(httpRequest)),
+					)
+				}
+				recovery(c, err)
+			}
+		}()
+		c.Next()
 	}
 }
