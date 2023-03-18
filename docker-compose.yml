@@ -13,8 +13,8 @@ services:
       - "5432:5432"
     volumes:
       - ./_db:/var/lib/postgresql/data
-  app:
-    image: sing3demons/gin-backend-apt:0.1
+  go-service-app:
+    image: sing3demons/gin-backend-api:0.1
     build: .
     container_name: go-backend
     ports:
@@ -26,3 +26,24 @@ services:
       - JWT_SECRET=4614A26F-273E-4FB1-B282-4B64AE60591D
     depends_on:
       - db
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+       - ./prometheus:/etc/prometheus/
+    command:
+     - '--config.file=/etc/prometheus/prometheus.yml'
+     - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - go-service-app
+  grafana:
+    image: grafana/grafana:latest
+#    volumes: 
+#      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
