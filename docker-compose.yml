@@ -14,6 +14,7 @@ services:
     volumes:
       - ./_db:/var/lib/postgresql/data
   app:
+    image: sing3demons/gin-backend-apt:0.1
     build: .
     container_name: go-backend
     ports:
